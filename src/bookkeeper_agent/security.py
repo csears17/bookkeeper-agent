@@ -16,10 +16,6 @@ class TokenCipher:
             raise ValueError("TokenCipher requires at least one Fernet key")
         self._fernet = MultiFernet([Fernet(k.encode()) for k in keys])
 
-    @classmethod
-    def from_keys(cls, keys: list[str]) -> "TokenCipher":
-        return cls(keys)
-
     def encrypt(self, plaintext: str) -> bytes:
         return self._fernet.encrypt(plaintext.encode())
 
