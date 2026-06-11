@@ -1,0 +1,19 @@
+# Fixed client -> inbox -> QBO-company map. Copy to clients.toml (gitignored) and fill in.
+# provider is "google" or "microsoft". mailbox must be unique across all clients.
+# autonomy_level: 0 = Slack-approve before any write (default). 1/2 reserved for later.
+
+[[client]]
+key = "habit-pilates"
+display_name = "Habit Pilates"
+provider = "google"
+mailbox = "habit@unionstreet.io"
+qbo_realm_id = "1234567890"
+autonomy_level = 0
+
+[[client]]
+key = "2expect"
+display_name = "2Expect LLC"
+provider = "microsoft"
+mailbox = "2expect@unionstreet.io"
+qbo_realm_id = "9876543210"
+autonomy_level = 0
