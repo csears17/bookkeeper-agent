@@ -1,4 +1,5 @@
 from datetime import date, datetime, timezone
+from decimal import Decimal
 
 import pytest
 
@@ -41,8 +42,8 @@ def test_bill_draft_and_lines():
     draft = BillDraft(
         vendor_id="V1",
         txn_date=date(2026, 6, 1),
-        total=250.0,
-        lines=(BillLine(amount=250.0, account_id="A1", description="Supplies"),),
+        total=Decimal("250.00"),
+        lines=(BillLine(amount=Decimal("250.00"), account_id="A1", description="Supplies"),),
         due_date=date(2026, 6, 30),
         doc_number="INV-100",
     )
@@ -55,7 +56,7 @@ def test_simple_value_objects():
     assert Vendor(id="V1", display_name="ACME").display_name == "ACME"
     assert VendorDraft(display_name="ACME").email is None
     assert Account(id="A1", name="Supplies", account_type="Expense").account_type == "Expense"
-    assert Bill(id="B1", vendor_id="V1", total=250.0).doc_number is None
+    assert Bill(id="B1", vendor_id="V1", total=Decimal("250.00")).doc_number is None
     assert SlackMessageRef(channel="C1", ts="1.0001").ts == "1.0001"
 
 
@@ -66,7 +67,7 @@ def test_bill_proposal_is_view_model():
         company_realm="111",
         vendor_name="ACME",
         is_new_vendor=True,
-        total=250.0,
+        total=Decimal("250.00"),
         currency="USD",
         txn_date=date(2026, 6, 1),
         due_date=date(2026, 6, 30),

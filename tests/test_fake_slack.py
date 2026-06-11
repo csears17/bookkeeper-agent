@@ -1,4 +1,5 @@
 from datetime import date
+from decimal import Decimal
 
 from bookkeeper_agent.connectors.slack import FakeSlackConnector
 from bookkeeper_agent.connectors.types import BillProposal
@@ -7,7 +8,7 @@ from bookkeeper_agent.connectors.types import BillProposal
 def _proposal():
     return BillProposal(
         client_key="habit-pilates", client_display="Habit Pilates", company_realm="111",
-        vendor_name="ACME", is_new_vendor=False, total=250.0, currency="USD",
+        vendor_name="ACME", is_new_vendor=False, total=Decimal("250.00"), currency="USD",
         txn_date=date(2026, 6, 1), due_date=date(2026, 6, 30), doc_number="INV-100",
         proposed_account_name="Supplies", confidence=0.9, reasoning="precedent",
         pdf_filename="invoice.pdf",

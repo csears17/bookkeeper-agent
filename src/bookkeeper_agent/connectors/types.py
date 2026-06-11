@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import date, datetime
+from decimal import Decimal
 
 
 @dataclass(frozen=True)
@@ -51,7 +52,7 @@ class Account:
 
 @dataclass(frozen=True)
 class BillLine:
-    amount: float
+    amount: Decimal
     account_id: str
     description: str | None = None
 
@@ -60,7 +61,7 @@ class BillLine:
 class BillDraft:
     vendor_id: str
     txn_date: date
-    total: float
+    total: Decimal
     lines: tuple[BillLine, ...]
     due_date: date | None = None
     doc_number: str | None = None
@@ -71,7 +72,7 @@ class BillDraft:
 class Bill:
     id: str
     vendor_id: str
-    total: float
+    total: Decimal
     doc_number: str | None = None
 
 
@@ -86,7 +87,7 @@ class BillProposal:
     company_realm: str
     vendor_name: str
     is_new_vendor: bool
-    total: float
+    total: Decimal
     currency: str
     txn_date: date
     due_date: date | None

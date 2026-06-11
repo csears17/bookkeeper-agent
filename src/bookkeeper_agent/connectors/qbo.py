@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from decimal import Decimal
 from typing import Protocol, runtime_checkable
 
 from bookkeeper_agent.connectors.types import (
@@ -23,7 +24,7 @@ class QboConnector(Protocol):
     def recent_bills_for_vendor(self, realm: str, vendor_id: str, limit: int = 20) -> list[Bill]: ...
 
     def find_duplicate_bill(
-        self, realm: str, vendor_id: str, doc_number: str | None, total: float
+        self, realm: str, vendor_id: str, doc_number: str | None, total: Decimal
     ) -> Bill | None: ...
 
     def create_vendor(self, realm: str, draft: VendorDraft) -> Vendor: ...
@@ -77,13 +78,13 @@ class FakeQboConnector:
         return [b for b in self._bills.get(realm, []) if b.vendor_id == vendor_id][:limit]
 
     def find_duplicate_bill(
-        self, realm: str, vendor_id: str, doc_number: str | None, total: float
+        self, realm: str, vendor_id: str, doc_number: str | None, total: Decimal
     ) -> Bill | None:
         for b in self._bills.get(realm, []):
             if (
                 b.vendor_id == vendor_id
                 and b.doc_number == doc_number
-                and abs(b.total - total) < 0.005
+                and b.total == total
             ):
                 return b
         return None
