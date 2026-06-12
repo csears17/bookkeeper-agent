@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 
 from sqlalchemy import String
 from sqlalchemy.types import TypeDecorator
@@ -27,4 +27,7 @@ class DecimalText(TypeDecorator):
     def process_result_value(self, value, dialect):
         if value is None:
             return None
-        return Decimal(value)
+        try:
+            return Decimal(value)
+        except InvalidOperation as exc:
+            raise ValueError(f"corrupt DecimalText value in database: {value!r}") from exc
