@@ -75,26 +75,33 @@ class HttpxQboConnector:
             for a in rows.get("Account", [])
         ]
 
+    def _recent_bill_rows(self, realm, max_results=1000) -> list[dict]:
+        # NOTE: QBO query language does not reliably support filtering transaction
+        # entities by a reference field (WHERE VendorRef = '...'), so we fetch recent
+        # bills with only well-supported clauses (ORDER BY / MAXRESULTS) and filter by
+        # vendor client-side. Correct regardless of QBO's reference-filter support.
+        rows = self._query(realm, f"SELECT * FROM Bill ORDER BY TxnDate DESC MAXRESULTS {int(max_results)}")
+        return rows.get("Bill", [])
+
+    @staticmethod
+    def _bill_vendor_id(b: dict) -> str:
+        return str(b.get("VendorRef", {}).get("value", ""))
+
     def recent_bills_for_vendor(self, realm, vendor_id, limit=20):
-        rows = self._query(
-            realm,
-            f"SELECT * FROM Bill WHERE VendorRef = '{_escape(vendor_id)}' "
-            f"ORDER BY TxnDate DESC MAXRESULTS {int(limit)}",
-        )
-        return [
-            Bill(id=str(b["Id"]), vendor_id=vendor_id,
-                 total=Decimal(str(b.get("TotalAmt", "0"))), doc_number=b.get("DocNumber"))
-            for b in rows.get("Bill", [])
-        ]
+        out = []
+        for b in self._recent_bill_rows(realm):
+            if self._bill_vendor_id(b) == vendor_id:
+                out.append(Bill(id=str(b["Id"]), vendor_id=vendor_id,
+                                total=Decimal(str(b.get("TotalAmt", "0"))), doc_number=b.get("DocNumber")))
+                if len(out) >= limit:
+                    break
+        return out
 
     def vendor_account_history(self, realm, vendor_id):
-        rows = self._query(
-            realm,
-            f"SELECT * FROM Bill WHERE VendorRef = '{_escape(vendor_id)}' "
-            "ORDER BY TxnDate DESC MAXRESULTS 50",
-        )
         counts: dict[str, list] = {}  # account_id -> [name, count]
-        for b in rows.get("Bill", []):
+        for b in self._recent_bill_rows(realm):
+            if self._bill_vendor_id(b) != vendor_id:
+                continue
             for line in b.get("Line", []):
                 detail = line.get("AccountBasedExpenseLineDetail")
                 if not detail:
@@ -113,13 +120,10 @@ class HttpxQboConnector:
     def find_duplicate_bill(self, realm, vendor_id, doc_number, total):
         if not doc_number:
             return None
-        rows = self._query(
-            realm,
-            f"SELECT * FROM Bill WHERE VendorRef = '{_escape(vendor_id)}' "
-            f"AND DocNumber = '{_escape(doc_number)}'",
-        )
+        # DocNumber IS a queryable field; match vendor + total client-side.
+        rows = self._query(realm, f"SELECT * FROM Bill WHERE DocNumber = '{_escape(doc_number)}'")
         for b in rows.get("Bill", []):
-            if Decimal(str(b.get("TotalAmt", "0"))) == total:
+            if self._bill_vendor_id(b) == vendor_id and Decimal(str(b.get("TotalAmt", "0"))) == total:
                 return Bill(id=str(b["Id"]), vendor_id=vendor_id,
                             total=total, doc_number=doc_number)
         return None
@@ -168,5 +172,10 @@ class HttpxQboConnector:
             "file_metadata_01": ("metadata.json", _json.dumps(metadata), "application/json"),
             "file_content_01": (attachment.filename, attachment.content, attachment.mime_type),
         }
-        self._call(realm, "POST", f"/v3/company/{realm}/upload",
-                   params={"minorversion": _MINOR_VERSION}, files=files)
+        resp = self._call(realm, "POST", f"/v3/company/{realm}/upload",
+                          params={"minorversion": _MINOR_VERSION}, files=files)
+        # The upload endpoint can fail per-file with an embedded Fault even on HTTP 200.
+        results = resp.get("AttachableResponse") or []
+        if results and results[0].get("Fault"):
+            errors = results[0]["Fault"].get("Error", [{}])
+            raise QboApiError(errors[0].get("Message", "attach_failed"))

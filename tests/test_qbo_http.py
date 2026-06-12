@@ -109,6 +109,50 @@ def test_attach_pdf_uploads_multipart():
     assert call["files"] is not None
 
 
+def test_recent_bills_for_vendor_filters_client_side_no_vendorref_sql():
+    http = _StubHttp()
+    http.queue("query", {"QueryResponse": {"Bill": [
+        {"Id": "1", "TotalAmt": 10.0, "DocNumber": "A", "VendorRef": {"value": "7"}},
+        {"Id": "2", "TotalAmt": 20.0, "DocNumber": "B", "VendorRef": {"value": "9"}},
+        {"Id": "3", "TotalAmt": 30.0, "DocNumber": "C", "VendorRef": {"value": "7"}},
+    ]}})
+    bills = _conn(http).recent_bills_for_vendor(REALM, "7")
+    assert [b.id for b in bills] == ["1", "3"]
+    # must NOT filter by VendorRef in the SQL (QBO doesn't reliably support it)
+    assert "VendorRef" not in str(http.calls[0]["params"])
+
+
+def test_vendor_account_history_aggregates_account_usage():
+    http = _StubHttp()
+    http.queue("query", {"QueryResponse": {"Bill": [
+        {"Id": "1", "VendorRef": {"value": "7"}, "Line": [
+            {"AccountBasedExpenseLineDetail": {"AccountRef": {"value": "33", "name": "Supplies"}}}]},
+        {"Id": "2", "VendorRef": {"value": "7"}, "Line": [
+            {"AccountBasedExpenseLineDetail": {"AccountRef": {"value": "33", "name": "Supplies"}}}]},
+        {"Id": "3", "VendorRef": {"value": "9"}, "Line": [  # other vendor, ignored
+            {"AccountBasedExpenseLineDetail": {"AccountRef": {"value": "44", "name": "Rent"}}}]},
+    ]}})
+    stats = _conn(http).vendor_account_history(REALM, "7")
+    assert len(stats) == 1
+    assert stats[0].account_id == "33" and stats[0].account_name == "Supplies" and stats[0].count == 2
+
+
+def test_find_duplicate_bill_queries_by_docnumber_not_vendorref():
+    http = _StubHttp()
+    http.queue("query", {"QueryResponse": {"Bill": [
+        {"Id": "90", "DocNumber": "INV-100", "TotalAmt": 250.0, "VendorRef": {"value": "7"}}]}})
+    _conn(http).find_duplicate_bill(REALM, "7", "INV-100", Decimal("250.00"))
+    params = str(http.calls[0]["params"])
+    assert "DocNumber" in params and "VendorRef" not in params
+
+
+def test_attach_pdf_per_file_fault_raises():
+    http = _StubHttp()
+    http.queue("/upload", {"AttachableResponse": [{"Fault": {"Error": [{"Message": "FileTooLarge"}]}}]})
+    with pytest.raises(QboApiError, match="FileTooLarge"):
+        _conn(http).attach_pdf(REALM, "55", Attachment("x.pdf", "application/pdf", b"%PDF"))
+
+
 def test_api_error_raises():
     http = _StubHttp()
     http.queue("query", {"Fault": {"Error": [{"Message": "AuthenticationFailed"}]}})
