@@ -9,6 +9,7 @@ from bookkeeper_agent.connectors.types import (
     Bill,
     BillDraft,
     Vendor,
+    VendorAccountStat,
     VendorDraft,
 )
 
@@ -22,6 +23,8 @@ class QboConnector(Protocol):
     def list_accounts(self, realm: str) -> list[Account]: ...
 
     def recent_bills_for_vendor(self, realm: str, vendor_id: str, limit: int = 20) -> list[Bill]: ...
+
+    def vendor_account_history(self, realm: str, vendor_id: str) -> list["VendorAccountStat"]: ...
 
     def find_duplicate_bill(
         self, realm: str, vendor_id: str, doc_number: str | None, total: Decimal
@@ -46,6 +49,7 @@ class FakeQboConnector:
         self._vendors: dict[str, dict[str, Vendor]] = {}  # realm -> name.lower() -> Vendor
         self._accounts: dict[str, list[Account]] = {}
         self._bills: dict[str, list[Bill]] = {}
+        self._account_history: dict[tuple[str, str], list[VendorAccountStat]] = {}
         self.created_vendors: list[tuple[str, VendorDraft]] = []
         self.created_bills: list[tuple[str, BillDraft]] = []
         self.attachments: list[tuple[str, str, Attachment]] = []
@@ -62,6 +66,9 @@ class FakeQboConnector:
     def seed_bill(self, realm: str, bill: Bill) -> None:
         self._bills.setdefault(realm, []).append(bill)
 
+    def seed_account_history(self, realm: str, vendor_id: str, stats: list[VendorAccountStat]) -> None:
+        self._account_history[(realm, vendor_id)] = list(stats)
+
     def _alloc(self, prefix: str) -> str:
         self._counter += 1
         return f"{prefix}{self._counter}"
@@ -76,6 +83,9 @@ class FakeQboConnector:
 
     def recent_bills_for_vendor(self, realm: str, vendor_id: str, limit: int = 20) -> list[Bill]:
         return [b for b in self._bills.get(realm, []) if b.vendor_id == vendor_id][:limit]
+
+    def vendor_account_history(self, realm: str, vendor_id: str) -> list[VendorAccountStat]:
+        return list(self._account_history.get((realm, vendor_id), []))
 
     def find_duplicate_bill(
         self, realm: str, vendor_id: str, doc_number: str | None, total: Decimal

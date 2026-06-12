@@ -22,6 +22,7 @@ CASES = [
             "find_vendor",
             "list_accounts",
             "recent_bills_for_vendor",
+            "vendor_account_history",
             "find_duplicate_bill",
             "create_vendor",
             "create_bill",

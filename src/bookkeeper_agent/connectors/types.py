@@ -102,3 +102,13 @@ class BillProposal:
 class SlackMessageRef:
     channel: str
     ts: str
+
+
+@dataclass(frozen=True)
+class VendorAccountStat:
+    """How often a vendor's prior bills were booked to a given account.
+    Feeds history-driven categorization."""
+
+    account_id: str
+    account_name: str
+    count: int
