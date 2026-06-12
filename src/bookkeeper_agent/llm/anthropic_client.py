@@ -64,9 +64,12 @@ def _parse_decimal(value: str | None) -> Decimal | None:
     if not value:
         return None
     try:
-        return Decimal(value)
+        result = Decimal(value)
     except InvalidOperation:
         return None
+    if not result.is_finite():
+        return None
+    return result
 
 
 class AnthropicLlmClient:

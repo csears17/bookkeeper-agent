@@ -83,6 +83,20 @@ def test_categorize_builds_prompt_with_accounts_and_precedents(engine):
     assert "A1: Supplies" in prompt and "ACME -> Supplies (3 prior bills)" in prompt
 
 
+def test_parse_decimal_rejects_non_finite_and_garbage():
+    from decimal import Decimal
+
+    from bookkeeper_agent.llm.anthropic_client import _parse_decimal
+
+    assert _parse_decimal("250.00") == Decimal("250.00")
+    assert _parse_decimal(None) is None
+    assert _parse_decimal("") is None
+    assert _parse_decimal("abc") is None
+    assert _parse_decimal("NaN") is None
+    assert _parse_decimal("Infinity") is None
+    assert _parse_decimal("-Infinity") is None
+
+
 def test_spend_cap_blocks_before_calling_model(engine):
     parsed = _ExtractionSchema(is_bill=False)
     stub = _StubClient(parsed)
