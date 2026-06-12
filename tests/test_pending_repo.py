@@ -54,3 +54,12 @@ def test_set_status_records_resolution_fields(engine):
     assert row.posted_bill_id == "B1"
     assert row.slack_channel == "C1" and row.slack_ts == "1.0001"
     assert row.resolved_at is not None
+
+
+def test_find_by_slack(engine):
+    repo = PendingBillRepo(engine)
+    pid = repo.create(**_fields(source_message_id="ms"))
+    repo.set_status(pid, "pending", slack_channel="C1", slack_ts="9.9")
+    found = repo.find_by_slack("C1", "9.9")
+    assert found is not None and found.id == pid
+    assert repo.find_by_slack("C1", "0.0") is None

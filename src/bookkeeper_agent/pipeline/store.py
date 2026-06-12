@@ -58,6 +58,18 @@ class PendingBillRepo:
                 s.expunge(row)
             return row
 
+    def find_by_slack(self, channel: str, ts: str) -> PendingBill | None:
+        with session_scope(self._engine) as s:
+            row = s.execute(
+                select(PendingBill).where(
+                    PendingBill.slack_channel == channel,
+                    PendingBill.slack_ts == ts,
+                )
+            ).scalar_one_or_none()
+            if row is not None:
+                s.expunge(row)
+            return row
+
     def set_status(
         self,
         pending_id: int,

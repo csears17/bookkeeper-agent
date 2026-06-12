@@ -36,3 +36,9 @@ def test_timestamps_are_unique():
     a = slack.post_proposal("C", _proposal())
     b = slack.post_proposal("C", _proposal())
     assert a.ts != b.ts
+
+
+def test_update_resolved_records():
+    slack = FakeSlackConnector()
+    slack.update_resolved("C-APPROVALS", "1.0001", "Approved by Cole")
+    assert slack.updates == [("C-APPROVALS", "1.0001", "Approved by Cole")]

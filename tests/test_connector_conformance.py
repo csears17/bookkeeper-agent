@@ -29,7 +29,7 @@ CASES = [
             "attach_pdf",
         ],
     ),
-    (SlackConnector, FakeSlackConnector, ["post_proposal", "post_receipt"]),
+    (SlackConnector, FakeSlackConnector, ["post_proposal", "post_receipt", "update_resolved"]),
 ]
 
 
