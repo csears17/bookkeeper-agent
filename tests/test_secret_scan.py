@@ -72,6 +72,13 @@ def test_allows_placeholder_values_on_secret_and_token_lines():
     assert find_secrets(".env.example", content) == []
 
 
+def test_empty_secret_value_does_not_swallow_next_line():
+    # Regression: an empty KEY= on a _SECRET/_TOKEN line must NOT capture the
+    # following line as its value (the \\s-crosses-newline bug).
+    content = "QBO_CLIENT_SECRET=\nQBO_ENV=sandbox\n"
+    assert find_secrets(".env.example", content) == []
+
+
 def test_secret_line_rule_only_applies_to_env_example():
     # A real-looking secret value on a *_SECRET line in a normal file is fine
     # unless it matches a known provider pattern.

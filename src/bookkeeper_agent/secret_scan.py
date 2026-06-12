@@ -32,8 +32,10 @@ _FERNET_TOKEN = re.compile(r"[A-Za-z0-9_-]{43}=")
 _TOKEN_ENC_KEYS_LINE = re.compile(r"(?mi)^\s*TOKEN_ENC_KEYS\s*=\s*(.+)$")
 
 # Lines in a .env.example template whose value must stay a placeholder.
+# Use horizontal whitespace ([ \t]) around '=' — NOT \s, which matches newlines
+# and would let an empty value (KEY=) swallow the following line as its "value".
 _SECRET_ASSIGNMENT = re.compile(
-    r"(?mi)^\s*([A-Z0-9_]*(?:_SECRET|_TOKEN)|ANTHROPIC_API_KEY)\s*=\s*(.*?)\s*$"
+    r"(?mi)^[ \t]*([A-Z0-9_]*(?:_SECRET|_TOKEN)|ANTHROPIC_API_KEY)[ \t]*=[ \t]*(.*?)[ \t]*$"
 )
 
 
