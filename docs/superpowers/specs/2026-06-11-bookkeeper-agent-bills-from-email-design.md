@@ -245,6 +245,51 @@ Mirrors the Coast approach (pytest, fake connectors, security tests as first-cla
 
 ---
 
+## 9b. Slack-drop ingestion (capability added 2026-06-11)
+
+A second way to feed the bills pipeline, added because email access is gated behind
+other admins' app approvals. Cole drops a **PDF / JPEG / image / text** file into Slack
+and a bill is created — needing only **Cole's Slack app + QBO**, not Gmail/Graph.
+
+**Design fit:** the propose pipeline is made **source-agnostic**. Both ingestion paths
+produce a normalized **`BillIntake`** `{source: "email"|"slack-drop", source_id, client_key,
+company_realm, attachments, body_text, skip_classification}` and feed the *same* extract →
+vendor/dup/history → categorize → BillProposal → PendingBill → Slack-card → approve → QBO
+flow. The email adapter resolves company from the inbox map; the Slack-drop adapter resolves
+it from Cole's input.
+
+**Company selection (Slack-drop):** Cole **types the client in the message** with the file;
+the agent matches it against the client registry. If the match is **missing or not
+confident**, the bot replies with a **dropdown of configured clients** and Cole picks. The
+resolved client is validated against the registry → `company_realm`.
+
+**Safety invariant preserved:** the model never chooses the book. In the email path the
+inbox binding decides it; in the Slack-drop path **Cole** decides it (typed or via the
+dropdown), validated against the registry.
+
+**Behavior differences for Slack-drop:** it's an *explicit* bill, so **skip the pre-screen
+and the "is this a bill?" gate** (still run LLM extraction on the file to pull fields). The
+"forget non-bill content" privacy rule doesn't apply — Cole intentionally submitted it.
+Idempotency `source_id` = the Slack file id (re-processing the same upload dedupes).
+
+**Receive layer (Slack):** the Slack connector gains an inbound Socket Mode path — listening
+for file-upload events + reading the message text, downloading the file via Slack's files API
+(adds `files:read`), and rendering the client-picker dropdown — alongside the Approve/Reject
+button handling.
+
+**Reprioritized roadmap (to a usable product without email):**
+1. **WS-C3** — core propose pipeline, **source-agnostic**, tested on Fakes.
+2. **WS-B4** — real Slack connector: post cards + receive button clicks + **receive file
+   uploads + client dropdown**.
+3. **WS-B3** — real QBO connector: OAuth connect (`http://localhost:8000/qbo/callback`) +
+   write bill + attach PDF + vendor/dup/history reads.
+4. **Slack-drop adapter + WS-C4 write-gate** wired end-to-end → first usable flow
+   (drop file → approve → QBO bill).
+5. **WS-B2** — Gmail + MS Graph email connectors — **deferred** until the email apps are
+   approved by the other admins.
+
+---
+
 ## 10. Decisions log (from brainstorming)
 - Whose books: **Cole's own practice** (7–15 client companies). Not the Coast SaaS.
 - QBO platform: **QuickBooks Online only.**
@@ -260,3 +305,4 @@ Mirrors the Coast approach (pytest, fake connectors, security tests as first-cla
 - Spend cap: **warn at 75%, hard stop at 100%**, changeable.
 - Runtime: **build on PC → deploy to Mac Mini.**
 - Repo: **separate** (`bookkeeper-agent`), reusing Coast's `TokenCipher` pattern.
+- **Slack-drop ingestion (2026-06-11):** drop a PDF/JPEG/text into Slack → bill created; Cole **types the client**, with a **dropdown fallback** when unclear. Pipeline made **source-agnostic** (`BillIntake`). **Reprioritized: Slack-drop path before email connectors** (only needs Slack + QBO, not the admin-gated email apps). See §9b.
