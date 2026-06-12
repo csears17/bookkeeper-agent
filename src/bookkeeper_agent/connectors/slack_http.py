@@ -2,7 +2,11 @@ from __future__ import annotations
 
 from typing import Callable
 
-from bookkeeper_agent.connectors.slack_blocks import proposal_blocks, receipt_blocks
+from bookkeeper_agent.connectors.slack_blocks import (
+    client_picker_blocks,
+    proposal_blocks,
+    receipt_blocks,
+)
 from bookkeeper_agent.connectors.types import BillProposal, SlackMessageRef
 
 _SLACK_API = "https://slack.com/api"
@@ -72,6 +76,22 @@ class HttpxSlackConnector:
         self._call("chat.update", {
             "channel": channel, "ts": ts, "text": text, "blocks": receipt_blocks(text),
         })
+
+    def post_picker(self, channel: str, file_id: str,
+                    clients: list[tuple[str, str]]) -> SlackMessageRef:
+        """Ask which client a dropped file belongs to (the file id rides in the
+        picker block_id so the selection maps back to the file)."""
+        resp = self._call("chat.postMessage", {
+            "channel": channel,
+            "blocks": client_picker_blocks(clients, file_id),
+            "text": "Which client is this bill for?",
+        })
+        return SlackMessageRef(channel=resp["channel"], ts=resp["ts"])
+
+    def file_info(self, file_id: str) -> dict:
+        """Return the Slack file object (name, mimetype, url_private) by id."""
+        resp = self._call("files.info", {"file": file_id})
+        return resp.get("file", {})
 
     def download_file(self, url_private: str) -> bytes:
         return self._file_get(url_private)

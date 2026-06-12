@@ -26,6 +26,15 @@ class FileDrop:
     text: str
 
 
+@dataclass(frozen=True)
+class ClientPick:
+    file_id: str
+    client_key: str
+    channel: str
+    message_ts: str
+    user: str
+
+
 def parse_block_action(payload: dict) -> ApprovalAction | None:
     """Parse a Slack block_actions interaction for our approve/reject buttons.
     Returns None for any other action (e.g. the client picker)."""
@@ -38,6 +47,27 @@ def parse_block_action(payload: dict) -> ApprovalAction | None:
         return None
     return ApprovalAction(
         action=mapped,
+        channel=payload.get("channel", {}).get("id", ""),
+        message_ts=payload.get("message", {}).get("ts", ""),
+        user=payload.get("user", {}).get("id", ""),
+    )
+
+
+def parse_client_pick(payload: dict) -> ClientPick | None:
+    """Parse a `pick_client` dropdown selection. The dropped file's id is encoded
+    in the block_id as ``drop:<file_id>``. Returns None for any other action."""
+    actions = payload.get("actions") or []
+    if not actions or actions[0].get("action_id") != "pick_client":
+        return None
+    action = actions[0]
+    block_id = action.get("block_id", "")
+    file_id = block_id[len("drop:"):] if block_id.startswith("drop:") else ""
+    client_key = (action.get("selected_option") or {}).get("value", "")
+    if not file_id or not client_key:
+        return None
+    return ClientPick(
+        file_id=file_id,
+        client_key=client_key,
         channel=payload.get("channel", {}).get("id", ""),
         message_ts=payload.get("message", {}).get("ts", ""),
         user=payload.get("user", {}).get("id", ""),

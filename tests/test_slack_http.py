@@ -119,3 +119,14 @@ def test_default_get_downloads_with_bearer(monkeypatch):
     monkeypatch.setattr(httpx, "get", fake_get)
     conn = HttpxSlackConnector("xoxb-secret")  # default transport
     assert conn.download_file("https://files.slack.com/x") == b"%PDF-real"
+
+
+def test_post_picker_and_file_info():
+    api = _StubApi({"ok": True, "channel": "C", "ts": "1.0", "file": {"name": "x.pdf"}})
+    conn = HttpxSlackConnector("xoxb-token", api_post=api)
+    conn.post_picker("C-DROPS", "F1", [("habit-pilates", "Habit Pilates")])
+    method, payload = api.calls[0]
+    assert method == "chat.postMessage" and "F1" in __import__("json").dumps(payload)
+    info = conn.file_info("F1")
+    assert api.calls[1][0] == "files.info" and api.calls[1][1]["file"] == "F1"
+    assert info["name"] == "x.pdf"

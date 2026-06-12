@@ -74,3 +74,20 @@ def test_resolve_client_no_match_returns_none():
 
 def test_resolve_client_ambiguous_returns_none():
     assert resolve_client("habit pilates and 2expect", CLIENTS) is None
+
+
+def test_parse_client_pick_extracts_file_and_client():
+    from bookkeeper_agent.connectors.slack_events import ClientPick, parse_client_pick
+    payload = {
+        "user": {"id": "U1"}, "channel": {"id": "C-DROPS"}, "message": {"ts": "1.0"},
+        "actions": [{"action_id": "pick_client", "block_id": "drop:F1",
+                     "selected_option": {"value": "habit-pilates"}}],
+    }
+    pick = parse_client_pick(payload)
+    assert pick == ClientPick(file_id="F1", client_key="habit-pilates",
+                              channel="C-DROPS", message_ts="1.0", user="U1")
+
+
+def test_parse_client_pick_ignores_other_actions():
+    from bookkeeper_agent.connectors.slack_events import parse_client_pick
+    assert parse_client_pick({"actions": [{"action_id": "approve_bill"}]}) is None

@@ -43,15 +43,18 @@ def receipt_blocks(text: str) -> list[dict]:
     return [{"type": "section", "text": {"type": "mrkdwn", "text": text}}]
 
 
-def client_picker_blocks(clients: list[tuple[str, str]]) -> list[dict]:
+def client_picker_blocks(clients: list[tuple[str, str]], file_id: str = "") -> list[dict]:
     """clients: list of (key, display_name). Renders a dropdown to choose the
-    target company for a Slack-dropped file when the typed client was unclear."""
+    target company for a Slack-dropped file when the typed client was unclear.
+    The dropped file's id rides in the block_id (``drop:<file_id>``) so the
+    selection event can map back to the file — no server-side state needed."""
     options = [
         {"text": {"type": "plain_text", "text": display}, "value": key}
         for key, display in clients
     ]
     return [{
         "type": "section",
+        "block_id": f"drop:{file_id}",
         "text": {"type": "mrkdwn", "text": "Which client is this bill for?"},
         "accessory": {"type": "static_select", "action_id": "pick_client",
                       "placeholder": {"type": "plain_text", "text": "Choose a client"},

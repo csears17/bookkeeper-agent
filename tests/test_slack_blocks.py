@@ -54,3 +54,8 @@ def test_client_picker_blocks_lists_clients():
     assert selects, "expected a static_select"
     assert len(selects[0]["options"]) == 2
     assert selects[0]["action_id"] == "pick_client"
+
+
+def test_client_picker_encodes_file_id_in_block_id():
+    blocks = client_picker_blocks([("habit-pilates", "Habit Pilates")], file_id="F1")
+    assert blocks[0]["block_id"] == "drop:F1"
