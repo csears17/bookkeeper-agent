@@ -84,3 +84,23 @@ class PendingBillRepo:
                 row.slack_ts = slack_ts
             if error is not None:
                 row.error = error
+
+
+class CheckpointRepo:
+    """Per-mailbox poller cursor (last processed epoch-ms)."""
+
+    def __init__(self, engine: Engine):
+        self._engine = engine
+
+    def get(self, mailbox: str) -> int:
+        with session_scope(self._engine) as s:
+            row = s.get(Checkpoint, mailbox)
+            return row.last_epoch_ms if row is not None else 0
+
+    def set(self, mailbox: str, last_epoch_ms: int) -> None:
+        with session_scope(self._engine) as s:
+            row = s.get(Checkpoint, mailbox)
+            if row is None:
+                s.add(Checkpoint(mailbox=mailbox, last_epoch_ms=last_epoch_ms))
+            else:
+                row.last_epoch_ms = last_epoch_ms
