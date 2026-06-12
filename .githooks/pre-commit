@@ -1,0 +1,24 @@
+#!/bin/sh
+# Block commits that introduce real-looking secrets into staged files.
+#
+# Enable once per clone:
+#     git config core.hooksPath .githooks
+#
+# Bypass intentionally (rarely needed):  git commit --no-verify
+#
+# The actual detection lives in src/bookkeeper_agent/secret_scan.py so it is
+# unit-tested and shared with the CI guard (tests/test_no_committed_secrets.py).
+
+set -e
+
+if [ -x ".venv/Scripts/python.exe" ]; then
+    PY=".venv/Scripts/python.exe"          # Windows virtualenv
+elif [ -x ".venv/bin/python" ]; then
+    PY=".venv/bin/python"                  # POSIX virtualenv
+elif command -v python3 >/dev/null 2>&1; then
+    PY="python3"
+else
+    PY="python"
+fi
+
+PYTHONPATH="src${PYTHONPATH:+:$PYTHONPATH}" "$PY" -m bookkeeper_agent.secret_scan --staged
