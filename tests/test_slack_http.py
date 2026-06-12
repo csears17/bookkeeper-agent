@@ -74,3 +74,48 @@ def test_download_file_uses_injected_getter():
     conn = HttpxSlackConnector("xoxb-token", api_post=_StubApi({"ok": True}),
                                file_get=lambda url: b"%PDF-bytes")
     assert conn.download_file("https://files.slack.com/x") == b"%PDF-bytes"
+
+
+def test_default_post_assembles_url_and_bearer(monkeypatch):
+    """Exercise the real (non-injected) HTTP path with a monkeypatched httpx —
+    still offline, but covers URL/header/json assembly + ok handling."""
+    import httpx
+
+    captured = {}
+
+    class _Resp:
+        def raise_for_status(self):
+            pass
+
+        def json(self):
+            return {"ok": True, "channel": "C9", "ts": "5.0"}
+
+    def fake_post(url, headers=None, json=None, timeout=None):
+        captured.update(url=url, headers=headers, json=json)
+        return _Resp()
+
+    monkeypatch.setattr(httpx, "post", fake_post)
+    conn = HttpxSlackConnector("xoxb-secret")  # no api_post -> default transport
+    ref = conn.post_proposal("C9", _proposal())
+    assert captured["url"] == "https://slack.com/api/chat.postMessage"
+    assert captured["headers"]["Authorization"] == "Bearer xoxb-secret"
+    assert captured["json"]["channel"] == "C9"
+    assert ref.channel == "C9" and ref.ts == "5.0"
+
+
+def test_default_get_downloads_with_bearer(monkeypatch):
+    import httpx
+
+    class _Resp:
+        content = b"%PDF-real"
+
+        def raise_for_status(self):
+            pass
+
+    def fake_get(url, headers=None, timeout=None):
+        assert headers["Authorization"] == "Bearer xoxb-secret"
+        return _Resp()
+
+    monkeypatch.setattr(httpx, "get", fake_get)
+    conn = HttpxSlackConnector("xoxb-secret")  # default transport
+    assert conn.download_file("https://files.slack.com/x") == b"%PDF-real"
