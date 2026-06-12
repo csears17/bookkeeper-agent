@@ -128,6 +128,20 @@ def test_duplicate_is_blocked(engine):
     assert PendingBillRepo(engine).list_pending() == []
 
 
+def test_duplicate_path_audit_has_no_email_body(engine):
+    qbo = FakeQboConnector()
+    qbo.seed_vendor(REALM, Vendor(id="V1", display_name="ACME"))
+    qbo.seed_bill(REALM, Bill(id="B9", vendor_id="V1", total=Decimal("250.00"), doc_number="INV-100"))
+    llm = FakeLlmClient(extraction=_extraction(), suggestion=_suggestion())
+    slack = FakeSlackConnector()
+    intake = _intake(subject="SECRET personal note", body_text="confidential body text")
+    result = _pipeline(engine, llm, qbo, slack).process(intake)
+    assert result.outcome == IntakeOutcome.DUPLICATE
+    with session_scope(engine) as s:
+        blob = " ".join(e.summary + (e.detail_json or "") for e in s.query(AuditEvent).all())
+    assert "SECRET personal note" not in blob and "confidential body text" not in blob
+
+
 def test_idempotent_second_run_is_already_seen(engine):
     qbo = FakeQboConnector()
     qbo.seed_vendor(REALM, Vendor(id="V1", display_name="ACME"))

@@ -155,6 +155,6 @@ class BillsPipeline:
         ref = self._slack.post_proposal(self._channel, proposal)
         self._repo.set_status(pending_id, "pending", slack_channel=ref.channel, slack_ts=ref.ts)
 
-        self._audit("proposal", f"proposed bill: {proposal.vendor_name} {total} {extraction.currency}",
+        self._audit("proposal", f"proposed bill: {proposal.vendor_name} {total} {proposal.currency}",
                     intake, detail={"pending_id": pending_id, "account": suggestion.account_name})
         return IntakeResult(IntakeOutcome.PROPOSED, pending_id=pending_id)
