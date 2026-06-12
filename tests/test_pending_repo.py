@@ -63,3 +63,12 @@ def test_find_by_slack(engine):
     found = repo.find_by_slack("C1", "9.9")
     assert found is not None and found.id == pid
     assert repo.find_by_slack("C1", "0.0") is None
+
+
+def test_claim_pending_only_one_winner(engine):
+    repo = PendingBillRepo(engine)
+    pid = repo.create(**_fields(source_message_id="claimable"))
+    repo.set_status(pid, "pending")
+    assert repo.claim_pending(pid) is True   # wins: pending -> posting
+    assert repo.claim_pending(pid) is False  # already claimed
+    assert repo.get(pid).status == "posting"

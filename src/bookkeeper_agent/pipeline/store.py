@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from typing import Any
 
-from sqlalchemy import select
+from sqlalchemy import select, update
 from sqlalchemy.engine import Engine
 
 from bookkeeper_agent.db.base import session_scope
@@ -69,6 +69,19 @@ class PendingBillRepo:
             if row is not None:
                 s.expunge(row)
             return row
+
+    def claim_pending(self, pending_id: int) -> bool:
+        """Atomically transition pending -> posting. Returns True only for the
+        caller that won the race (the row was still 'pending'); False if it was
+        already claimed/resolved. Single conditional UPDATE — closes the
+        check-then-act double-post window regardless of how many workers run."""
+        with session_scope(self._engine) as s:
+            result = s.execute(
+                update(PendingBill)
+                .where(PendingBill.id == pending_id, PendingBill.status == "pending")
+                .values(status="posting")
+            )
+            return result.rowcount == 1
 
     def set_status(
         self,

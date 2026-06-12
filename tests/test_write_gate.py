@@ -109,3 +109,16 @@ def test_missing_account_errors_without_posting(engine):
     assert qbo.created_bills == []
     assert repo.get(pid).status == "error"
     assert slack.updates
+
+
+def test_double_approve_does_not_double_post(engine):
+    repo, pid = _seed_pending(engine)
+    qbo = FakeQboConnector()
+    qbo.seed_vendor(REALM, Vendor(id="V1", display_name="ACME"))
+    slack = FakeSlackConnector()
+    gate = _gate(engine, qbo, slack)
+    first = gate.handle(_approve_action())
+    second = gate.handle(_approve_action())  # re-delivered Slack event
+    assert first.outcome == WriteOutcome.POSTED
+    assert second.outcome == WriteOutcome.ALREADY_RESOLVED
+    assert len(qbo.created_bills) == 1  # never double-posted

@@ -69,6 +69,10 @@ class ApprovalGate:
             return WriteResult(WriteOutcome.ALREADY_RESOLVED, detail=pending.status)
         if action.action == "reject":
             return self._reject(pending, action.user)
+        # Atomically claim the row (pending -> posting) before any QBO write, so a
+        # re-delivered Slack interaction or a double-click can never post twice.
+        if not self._repo.claim_pending(pending.id):
+            return WriteResult(WriteOutcome.ALREADY_RESOLVED, detail="claimed")
         return self._approve(pending, action.user)
 
     def _reject(self, pending, user) -> WriteResult:
@@ -97,8 +101,12 @@ class ApprovalGate:
         try:
             vendor_id = pending.vendor_id
             if pending.is_new_vendor or not vendor_id:
-                vendor = self._qbo.create_vendor(realm, VendorDraft(display_name=pending.vendor_name))
-                vendor_id = vendor.id
+                # Defensive dedupe: the vendor may have been created since the
+                # proposal (e.g. by an earlier bill), so match before creating.
+                existing = self._qbo.find_vendor(realm, pending.vendor_name)
+                vendor_id = (existing.id if existing is not None
+                             else self._qbo.create_vendor(
+                                 realm, VendorDraft(display_name=pending.vendor_name)).id)
 
             draft = BillDraft(
                 vendor_id=vendor_id,
@@ -118,11 +126,13 @@ class ApprovalGate:
                     pending.pdf_bytes))
         except Exception as exc:  # noqa: BLE001 — surface any QBO failure, don't lose the bill
             self._repo.set_status(pending.id, "error", resolved=True, error=str(exc))
+            # Keep the raw error in the audit trail, not on the user-facing card.
             self._slack.update_resolved(
                 pending.slack_channel, pending.slack_ts,
-                f":warning: Failed to post {pending.vendor_name}: {exc}",
+                f":warning: Failed to post {pending.vendor_name} — see the agent logs.",
             )
-            self._audit("write", f"approve failed for {pending.id}: {exc}", pending)
+            self._audit("write", f"approve failed for {pending.id}", pending,
+                        detail={"error": str(exc)})
             return WriteResult(WriteOutcome.ERROR, detail=str(exc))
 
         self._repo.set_status(pending.id, "posted", resolved=True, posted_bill_id=bill.id)
