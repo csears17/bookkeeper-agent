@@ -87,7 +87,9 @@ def run(app) -> None:  # pragma: no cover - live Socket Mode glue
                     if event.get("type") == "message" and event.get("files"):
                         on_file_drop(event, app.clients, app.slack, app.pipeline)
         except Exception as exc:  # noqa: BLE001 - never let one event kill the loop
-            print(f"[runner] error handling {req.type}: {exc}")
+            # Log the type only — an exception message (e.g. an httpx error) can embed
+            # a signed Slack file URL or bearer token, which must never hit the logs.
+            print(f"[runner] error handling {req.type}: {type(exc).__name__}")
 
     sm.socket_mode_request_listeners.append(_handle)
     sm.connect()
